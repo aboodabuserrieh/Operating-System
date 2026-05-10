@@ -7,8 +7,8 @@ all: milestone1 milestone3
 milestone1: main_ms1.cpp
 	$(CXX) $(CXXFLAGS) main_ms1.cpp -o dijkstra
 
-milestone2: sim.cpp
-	$(CXX) $(CXXFLAGS) sim.cpp -o sim $(RAYFLAGS)
+milestone2: sim_ms2.cpp
+	$(CXX) $(CXXFLAGS) sim_ms2.cpp -o sim $(RAYFLAGS)
 
 milestone3: sim.cpp
 	$(CXX) $(CXXFLAGS) sim.cpp -o sim $(RAYFLAGS)
