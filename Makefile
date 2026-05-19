@@ -1,5 +1,5 @@
-CXX      = g++
-CXXFLAGS = -Wall -std=c++17
+CC       = gcc
+CFLAGS   = -Wall -std=c99
 RAYLIB_DIR = raylib-local
 RAYFLAGS = -I$(RAYLIB_DIR)/include -L$(RAYLIB_DIR)/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
@@ -14,14 +14,14 @@ setup:
 	rm -rf raylib-5.0_linux_amd64 raylib-5.0_linux_amd64.tar.gz
 	@echo "Raylib ready!"
 
-milestone1: main_ms1.cpp
-	$(CXX) $(CXXFLAGS) main_ms1.cpp -o dijkstra
+milestone1: main_ms1.c
+	$(CC) $(CFLAGS) main_ms1.c -o dijkstra
 
-milestone2: sim_ms2.cpp
-	$(CXX) $(CXXFLAGS) sim_ms2.cpp -o sim $(RAYFLAGS)
+milestone2: sim_ms2.c
+	$(CC) $(CFLAGS) sim_ms2.c -o sim_ms2 $(RAYFLAGS)
 
-milestone3: sim.cpp
-	$(CXX) $(CXXFLAGS) sim.cpp -o sim $(RAYFLAGS)
+milestone3: sim.c
+	$(CC) $(CFLAGS) sim.c -o sim $(RAYFLAGS)
 
 clean:
-	rm -f dijkstra sim
+	rm -f dijkstra sim_ms2 sim

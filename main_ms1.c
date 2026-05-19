@@ -1,101 +1,161 @@
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <queue>
-#include <climits>
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
 
-using namespace std;
-const int INF = INT_MAX;
+#define INF INT_MAX
 
-void dijkstra(int N, const vector<vector<pair<int, int>>>& adj, int src, int dst) {
+typedef struct {
+    int v, weight;
+} AdjEdge;
+
+typedef struct {
+    AdjEdge *edges;
+    int count, capacity;
+} AdjList;
+
+typedef struct {
+    int dist, node;
+} HeapNode;
+
+typedef struct {
+    HeapNode *data;
+    int size, capacity;
+} MinHeap;
+
+static void adjListAdd(AdjList *list, int v, int weight) {
+    if (list->count >= list->capacity) {
+        list->capacity = list->capacity == 0 ? 4 : list->capacity * 2;
+        list->edges = realloc(list->edges, list->capacity * sizeof(AdjEdge));
+    }
+    list->edges[list->count].v      = v;
+    list->edges[list->count].weight = weight;
+    list->count++;
+}
+
+static void heapPush(MinHeap *h, int dist, int node) {
+    if (h->size >= h->capacity) {
+        h->capacity = h->capacity == 0 ? 8 : h->capacity * 2;
+        h->data = realloc(h->data, h->capacity * sizeof(HeapNode));
+    }
+    int i = h->size++;
+    h->data[i].dist = dist;
+    h->data[i].node = node;
+    while (i > 0) {
+        int parent = (i - 1) / 2;
+        if (h->data[parent].dist <= h->data[i].dist) break;
+        HeapNode tmp    = h->data[parent];
+        h->data[parent] = h->data[i];
+        h->data[i]      = tmp;
+        i = parent;
+    }
+}
+
+static HeapNode heapPop(MinHeap *h) {
+    HeapNode top = h->data[0];
+    h->data[0]   = h->data[--h->size];
+    int i = 0;
+    for (;;) {
+        int left = 2*i+1, right = 2*i+2, smallest = i;
+        if (left  < h->size && h->data[left].dist  < h->data[smallest].dist) smallest = left;
+        if (right < h->size && h->data[right].dist < h->data[smallest].dist) smallest = right;
+        if (smallest == i) break;
+        HeapNode tmp        = h->data[i];
+        h->data[i]          = h->data[smallest];
+        h->data[smallest]   = tmp;
+        i = smallest;
+    }
+    return top;
+}
+
+static void dijkstra(int N, AdjList *adj, int src, int dst) {
     if (src == dst) {
-        cout << src << endl;
-        cout << 0 << endl;
+        printf("%d\n0\n", src);
         return;
     }
 
-    vector<int> dist(N, INF);
-    vector<int> parent(N, -1);
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+    int *dist   = malloc(N * sizeof(int));
+    int *parent = malloc(N * sizeof(int));
+    for (int i = 0; i < N; i++) { dist[i] = INF; parent[i] = -1; }
 
+    MinHeap h = {NULL, 0, 0};
     dist[src] = 0;
-    pq.push({0, src});
+    heapPush(&h, 0, src);
 
-    while (!pq.empty()) {
-        int d = pq.top().first;
-        int u = pq.top().second;
-        pq.pop();
-
+    while (h.size > 0) {
+        HeapNode cur = heapPop(&h);
+        int d = cur.dist, u = cur.node;
         if (d > dist[u]) continue;
         if (u == dst) break;
-
-        for (const auto& edge : adj[u]) {
-            int v = edge.first;
-            int weight = edge.second;
-
-            if (dist[u] + weight < dist[v]) {
-                dist[v] = dist[u] + weight;
+        for (int i = 0; i < adj[u].count; i++) {
+            int v = adj[u].edges[i].v;
+            int w = adj[u].edges[i].weight;
+            if (dist[u] + w < dist[v]) {
+                dist[v]   = dist[u] + w;
                 parent[v] = u;
-                pq.push({dist[v], v});
+                heapPush(&h, dist[v], v);
             }
         }
     }
 
     if (dist[dst] == INF) {
-        cout << "No path found" << endl;
-        return;
+        printf("No path found\n");
+    } else {
+        int *tmp = malloc(N * sizeof(int));
+        int  len = 0;
+        for (int v = dst; v != -1; v = parent[v])
+            tmp[len++] = v;
+        for (int i = len - 1; i >= 0; i--) {
+            printf("%d", tmp[i]);
+            if (i > 0) printf(" -> ");
+        }
+        printf("\n%d\n", dist[dst]);
+        free(tmp);
     }
 
-    vector<int> path;
-    for (int v = dst; v != -1; v = parent[v]) {
-        path.push_back(v);
-    }
-
-    for (int i = path.size() - 1; i >= 0; --i) {
-        cout << path[i];
-        if (i > 0) cout << " -> ";
-    }
-    cout << endl;
-    cout << dist[dst] << endl;
+    free(dist);
+    free(parent);
+    free(h.data);
 }
 
-int main(int argc, char* argv[]) {
-    string filename = "input.txt";
-    if (argc > 1) {
-        filename = argv[1];
-    }
+int main(int argc, char *argv[]) {
+    const char *filename = argc > 1 ? argv[1] : "input.txt";
 
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << filename << endl;
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(stderr, "Error: Could not open file %s\n", filename);
         return 1;
     }
 
     int N, M;
-    if (!(file >> N >> M)) return 0;
+    if (fscanf(file, "%d %d", &N, &M) != 2) return 0;
     if (N < 0 || M < 0) {
-        cerr << "Invalid input: negative numbers are not allowed." << endl;
+        fprintf(stderr, "Invalid input: negative numbers are not allowed.\n");
         return 1;
     }
 
-    vector<vector<pair<int, int>>> adj(N);
-    for (int i = 0; i < M; ++i) {
+    AdjList *adj = calloc(N, sizeof(AdjList));
+    for (int i = 0; i < M; i++) {
         int u, v, w;
-        file >> u >> v >> w;
+        fscanf(file, "%d %d %d", &u, &v, &w);
         if (u < 0 || v < 0 || w < 0) {
-            cerr << "Invalid input: negative numbers are not allowed." << endl;
+            fprintf(stderr, "Invalid input: negative numbers are not allowed.\n");
             return 1;
         }
-        adj[u].push_back({v, w});
+        adjListAdd(&adj[u], v, w);
     }
 
     int src, dst;
-    file >> src >> dst;
+    fscanf(file, "%d %d", &src, &dst);
+    fclose(file);
+
     if (src < 0 || dst < 0) {
-        cerr << "Invalid input: negative numbers are not allowed." << endl;
+        fprintf(stderr, "Invalid input: negative numbers are not allowed.\n");
         return 1;
     }
 
     dijkstra(N, adj, src, dst);
+
+    for (int i = 0; i < N; i++) free(adj[i].edges);
+    free(adj);
     return 0;
 }
