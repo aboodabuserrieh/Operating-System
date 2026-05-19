@@ -1,7 +1,7 @@
-CC       = gcc
-CFLAGS   = -Wall -std=c99
+CC         = gcc
+CFLAGS     = -Wall -std=c99
 RAYLIB_DIR = raylib-local
-RAYFLAGS = -I$(RAYLIB_DIR)/include -L$(RAYLIB_DIR)/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+RAYFLAGS   = -I$(RAYLIB_DIR)/include -L$(RAYLIB_DIR)/lib -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 all: milestone1 milestone3
 
@@ -18,10 +18,16 @@ milestone1: main_ms1.c
 	$(CC) $(CFLAGS) main_ms1.c -o dijkstra
 
 milestone2: sim_ms2.c
-	$(CC) $(CFLAGS) sim_ms2.c -o sim_ms2 $(RAYFLAGS)
+	$(CC) $(CFLAGS) sim_ms2.c -o sim $(RAYFLAGS)
 
 milestone3: sim.c
 	$(CC) $(CFLAGS) sim.c -o sim $(RAYFLAGS)
 
+milestone4: sim_ms4.c
+	$(CC) $(CFLAGS) sim_ms4.c -o sim $(RAYFLAGS)
+
+milestone5: sim_ms5.c
+	$(CC) $(CFLAGS) sim_ms5.c -o sim $(RAYFLAGS)
+
 clean:
-	rm -f dijkstra sim_ms2 sim
+	rm -f dijkstra sim
