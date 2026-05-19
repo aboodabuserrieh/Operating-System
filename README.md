@@ -4,7 +4,8 @@ Dijkstra's shortest-path algorithm with raylib visualization and animated entity
 
 ## Group Members
 - Qussay Abu Snana
-
+- Abood Abu Sirrieh
+- Lana Abu Hamed
 ## GitHub Repository
 https://github.com/aboodabuserrieh/Operating-System
 
