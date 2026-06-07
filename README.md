@@ -19,7 +19,8 @@ make milestone1   # build Dijkstra solver          -> ./dijkstra
 make milestone2   # build static graph visualizer  -> ./sim
 make milestone3   # build animated simulation       -> ./sim
 make milestone4   # build multi-traveler (fork)     -> ./sim
-make milestone5   # build IPC simulation (pipes)    -> ./sim
+make milestone5   # build IPC simulation (pipes)          -> ./sim
+make milestone6   # build synchronized simulation (sems)  -> ./sim
 make clean        # remove compiled binaries
 ```
 
@@ -53,6 +54,13 @@ Press **PLAY** to animate all travelers simultaneously in different colors.
 ```
 Travelers start automatically. Terminal prints arrival log for each traveler.
 
+### Milestone 6 — Node Synchronization via Semaphores (GUI + terminal log)
+```bash
+./sim input_ms6.txt
+```
+Travelers compete for shared nodes. Pulsing hollow circles = waiting outside node.
+Solid circles = inside node (holds lock). Terminal prints waiting/arrived/finished log.
+
 ---
 
 ## Input File Format
@@ -65,7 +73,7 @@ u1 v1 w1
 src dst
 ```
 
-### Milestones 4–5 (extended format)
+### Milestones 4–6 (extended format)
 ```
 # graph definition
 N M
@@ -159,3 +167,39 @@ Pipes were chosen because communication is strictly one-directional (child → p
 and scoped to the parent-child relationship, making them the simplest and most
 appropriate mechanism. Shared memory would require additional synchronization
 (semaphores) with no benefit here.
+
+### Milestone 6 — Node Synchronization via POSIX Named Semaphores
+
+Each node has a **POSIX named semaphore** (initial value 1), created by the parent
+before forking with `sem_open("/trafficsim_node_X", O_CREAT, 0666, 1)`.
+
+**Child protocol for each node in its path:**
+1. Send `MSG_WAITING` message to parent (GUI shows pulsing hollow circle)
+2. Call `sem_wait(node_sem)` — blocks until the node is free
+3. Send `MSG_ARRIVED` message to parent (GUI shows solid circle)
+4. Sleep 1 second (critical section — exclusive node access)
+5. Call `sem_post(node_sem)` — release the node
+6. Sleep `weight × 300 ms` for edge traversal to next node
+
+**Message format:** `int msg[3] = {type, node, next_node}`
+- `type 1` (WAITING): traveler blocked outside node
+- `type 0` (ARRIVED): traveler entered node (holds lock)
+
+**Synchronization choice: POSIX named semaphores**
+Named semaphores are the cleanest solution for mutual exclusion between sibling
+processes: they are persistent across `fork()`, accessible by name from any process,
+and automatically enforce the "at most one traveler per node" invariant with
+`sem_wait`/`sem_post`. Mutexes would require shared memory setup; System V semaphores
+would require more complex IPC key management. Named semaphores are unlinked by the
+parent at exit to avoid `/dev/shm` leaks.
+
+**Terminal log format (Milestone 6):**
+```
+[PID=1100] waiting for node 2
+[PID=1101] waiting for node 2
+[PID=1102] waiting for node 2
+[PID=1100] arrived at node 2 | next node: 4
+[PID=1100] finished
+[PID=1101] arrived at node 2 | next node: 4
+...
+```
