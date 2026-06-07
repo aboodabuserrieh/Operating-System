@@ -1,5 +1,5 @@
 # graph definition - MS6 demo: 3 travelers all pass through node 2
-5 5
+5 4
 0 2 1
 1 2 1
 3 2 1
