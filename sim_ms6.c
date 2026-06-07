@@ -1,4 +1,5 @@
 /* sim_ms6.c – Milestone 6: synchronized node access via POSIX named semaphores */
+#define _DEFAULT_SOURCE
 #include "raylib.h"
 #include <stdio.h>
 #include <stdlib.h>
