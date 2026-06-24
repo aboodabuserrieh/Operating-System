@@ -1,24 +1,23 @@
 # MS7 demo: FCFS vs SJF
 #
-# Timing designed so T1 and T2 BOTH arrive at hub node 3
-# while T0 is still inside it (all three queue up together):
+# T0: source edge w1 -> arrives hub at t=1.3s, enters immediately (hub free)
+# T1: source edge w2 -> arrives hub at t=1.6s  (T0 still inside) -> FIRST in queue
+# T2: source edge w4 -> arrives hub at t=2.2s  (T0 still inside) -> SECOND in queue
 #
-#   T0: source edge w1 -> arrives hub at t=1.3s, leaves at t=2.3s
-#   T1: source edge w4 -> arrives hub at t=2.2s  (inside T0's stay) QUEUED
-#   T2: source edge w4 -> arrives hub at t=2.2s  (inside T0's stay) QUEUED
+# T0 leaves hub at t=2.3s. At that point queue = [T1, T2].
 #
-# When T0 leaves at t=2.3s, both T1 and T2 are waiting:
+#   T1 (blue)   : next edge 3->5  weight 20  (heavy)
+#   T2 (purple) : next edge 3->6  weight  1  (light)
 #
-#   T1 (blue)   : next edge 3->5  weight 20  (heavy - slow exit)
-#   T2 (purple) : next edge 3->6  weight  1  (light - fast exit)
+# FCFS: T0 -> T1 -> T2   (T1 arrived first so it is first in queue)
+# SJF:  T0 -> T2 -> T1   (T2 has lighter next edge w1 < w20)
 #
-# FCFS: T0 -> T1 -> T2  (T1 was first in queue since i=1 read before i=2)
-# SJF:  T0 -> T2 -> T1  (T2 has lighter next edge weight, goes before T1)
-#
-# Clear visible difference: BLUE goes 2nd in FCFS, LAST in SJF
+# Hub exit order:
+#   FCFS: w5 -> w20 -> w1
+#   SJF:  w5 -> w1  -> w20
 7 6
 0 3 1
-1 3 4
+1 3 2
 2 3 4
 3 4 5
 3 5 20
