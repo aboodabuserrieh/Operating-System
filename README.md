@@ -65,8 +65,8 @@ Solid circles = inside node (holds lock). Terminal prints waiting/arrived/finish
 ### Milestone 7 — Scheduling Algorithms (FCFS / SJF)
 ```bash
 make milestone7
-./sim -schd fcfs input_ms6.txt
-./sim -schd sjf  input_ms6.txt
+./sim -schd fcfs input_ms7.txt
+./sim -schd sjf  input_ms7.txt
 ```
 Run with FCFS (first-come first-served) or SJF (shortest next edge weight first).
 The GUI title bar and HUD show which algorithm is active.
@@ -235,8 +235,8 @@ sends the signal.
 
 **How to run:**
 ```bash
-./sim -schd fcfs input_ms6.txt   # FCFS scheduling
-./sim -schd sjf  input_ms6.txt   # SJF scheduling
+./sim -schd fcfs input_ms7.txt   # FCFS scheduling
+./sim -schd sjf  input_ms7.txt   # SJF scheduling
 ```
 
 **Comparison — FCFS vs SJF:**

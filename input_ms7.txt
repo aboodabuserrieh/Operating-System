@@ -1,0 +1,23 @@
+# MS7 demo: FCFS vs SJF - same input, different scheduling order
+# All 3 travelers share node 3, but have different next-edge weights
+#
+# T0 (orange) : source 0, next edge from 3 -> weight 3  (medium)
+# T1 (blue)   : source 1, next edge from 3 -> weight 10 (heavy)
+# T2 (purple) : source 2, next edge from 3 -> weight 5  (light)
+#
+# All source edges have weight 3 so all arrive at node 3 at the same time.
+#
+# FCFS order at node 3: T0, T1, T2  (arrival/queue order)
+# SJF  order at node 3: T0, T2, T1  (T2 has lighter next edge than T1)
+7 6
+0 3 3
+1 3 3
+2 3 3
+3 4 3
+3 5 5
+3 6 10
+# travelers
+3
+0 4
+1 6
+2 5
