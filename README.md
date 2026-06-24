@@ -21,6 +21,7 @@ make milestone3   # build animated simulation       -> ./sim
 make milestone4   # build multi-traveler (fork)     -> ./sim
 make milestone5   # build IPC simulation (pipes)          -> ./sim
 make milestone6   # build synchronized simulation (sems)  -> ./sim
+make milestone7   # build scheduling simulation (FCFS/SJF) -> ./sim
 make clean        # remove compiled binaries
 ```
 
@@ -61,6 +62,15 @@ Travelers start automatically. Terminal prints arrival log for each traveler.
 Travelers compete for shared nodes. Pulsing hollow circles = waiting outside node.
 Solid circles = inside node (holds lock). Terminal prints waiting/arrived/finished log.
 
+### Milestone 7 — Scheduling Algorithms (FCFS / SJF)
+```bash
+make milestone7
+./sim -schd fcfs input_ms6.txt
+./sim -schd sjf  input_ms6.txt
+```
+Run with FCFS (first-come first-served) or SJF (shortest next edge weight first).
+The GUI title bar and HUD show which algorithm is active.
+
 ---
 
 ## Input File Format
@@ -73,7 +83,7 @@ u1 v1 w1
 src dst
 ```
 
-### Milestones 4–6 (extended format)
+### Milestones 4–7 (extended format)
 ```
 # graph definition
 N M
@@ -203,3 +213,44 @@ parent at exit to avoid `/dev/shm` leaks.
 [PID=1101] arrived at node 2 | next node: 4
 ...
 ```
+
+### Milestone 7 — Scheduling Algorithms
+
+Replaces the random node-entry order (Milestone 6) with deterministic scheduling.
+The parent process maintains a **waiting queue per node** and decides which blocked
+child to wake up based on the chosen algorithm.
+
+**IPC mechanism:**
+Two unnamed pipes per traveler: one child→parent (status messages) and one
+parent→child (the `'G'` go-signal). The child blocks on `read(p2c, &go, 1)` after
+sending `MSG_WAITING`, and only proceeds into the node after the parent's scheduler
+sends the signal.
+
+**Algorithms implemented:**
+
+| Algorithm | Description |
+|-----------|-------------|
+| FCFS | First-Come First-Served — travelers enter the node in the order they arrived at the queue |
+| SJF  | Shortest Job First — the traveler with the shortest next edge weight goes first (shorter next step = shorter "burst") |
+
+**How to run:**
+```bash
+./sim -schd fcfs input_ms6.txt   # FCFS scheduling
+./sim -schd sjf  input_ms6.txt   # SJF scheduling
+```
+
+**Comparison — FCFS vs SJF:**
+
+With `input_ms6.txt` (3 travelers, all passing through the same nodes):
+
+- **FCFS**: travelers enter nodes strictly in arrival order. Total simulation time
+  is predictable and fair — no traveler waits longer than necessary based on order.
+
+- **SJF**: travelers with a lighter next edge go first. When next-edge weights
+  differ, SJF reduces the average waiting time by letting "shorter" travelers pass
+  through quickly. However, a traveler with a heavy next edge may wait longer
+  (potential starvation if heavy travelers keep arriving).
+
+On a uniform-weight graph like `input_ms6.txt` both algorithms produce identical
+results since all edge weights are equal. To observe a difference, use a graph with
+varying edge weights where travelers have different next-step costs.

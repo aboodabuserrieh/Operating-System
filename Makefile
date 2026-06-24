@@ -32,5 +32,8 @@ milestone5: sim_ms5.c
 milestone6: sim_ms6.c
 	$(CC) $(CFLAGS) sim_ms6.c -o sim $(RAYFLAGS)
 
+milestone7: sim_ms7.c
+	$(CC) $(CFLAGS) sim_ms7.c -o sim $(RAYFLAGS)
+
 clean:
 	rm -f dijkstra sim
