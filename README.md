@@ -241,16 +241,22 @@ sends the signal.
 
 **Comparison — FCFS vs SJF:**
 
-With `input_ms6.txt` (3 travelers, all passing through the same nodes):
+Using `input_ms7.txt`: 4 travelers (T0–T3) all converge on hub node 4, then
+diverge to different destinations via edges of very different weights:
 
-- **FCFS**: travelers enter nodes strictly in arrival order. Total simulation time
-  is predictable and fair — no traveler waits longer than necessary based on order.
+| Traveler | Next edge from node 4 | Weight |
+|----------|-----------------------|--------|
+| T0 (orange) | 4 → 7 | 8 |
+| T1 (blue)   | 4 → 8 | **15** (heaviest) |
+| T2 (purple) | 4 → 5 | **1**  (lightest) |
+| T3 (green)  | 4 → 6 | 3 |
 
-- **SJF**: travelers with a lighter next edge go first. When next-edge weights
-  differ, SJF reduces the average waiting time by letting "shorter" travelers pass
-  through quickly. However, a traveler with a heavy next edge may wait longer
-  (potential starvation if heavy travelers keep arriving).
+| Algorithm | Entry order at node 4 |
+|-----------|-----------------------|
+| **FCFS**  | T0 → **T1** → T2 → T3 (queue/arrival order) |
+| **SJF**   | T0 → **T2** → T3 → T1 (lightest next edge first) |
 
-On a uniform-weight graph like `input_ms6.txt` both algorithms produce identical
-results since all edge weights are equal. To observe a difference, use a graph with
-varying edge weights where travelers have different next-step costs.
+**Key difference:** T1 (blue) enters node 4 **2nd in FCFS** but **last in SJF**,
+because SJF prioritises travelers with lighter next edges (T2 w=1, T3 w=3) before
+the heavy traveler (T1 w=15). This is clearly visible in the GUI — watch which
+colored circle enters node 4 after the orange one leaves.
