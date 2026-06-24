@@ -1,29 +1,30 @@
-# MS7 demo: FCFS vs SJF - 4 travelers through a shared hub (node 4)
+# MS7 demo: FCFS vs SJF
 #
-# Source nodes 0,1,2,3 all connect to hub node 4 with equal weight (arrive same time).
-# From node 4, each traveler takes a DIFFERENT weight edge to its destination:
+# Timing designed so T1 and T2 BOTH arrive at hub node 3
+# while T0 is still inside it (all three queue up together):
 #
-#   T0 (orange) : 0 -> 4 -> 7   next edge weight  8
-#   T1 (blue)   : 1 -> 4 -> 8   next edge weight 15  (heaviest)
-#   T2 (purple) : 2 -> 4 -> 5   next edge weight  1  (lightest)
-#   T3 (green)  : 3 -> 4 -> 6   next edge weight  3
+#   T0: source edge w1 -> arrives hub at t=1.3s, leaves at t=2.3s
+#   T1: source edge w4 -> arrives hub at t=2.2s  (inside T0's stay) QUEUED
+#   T2: source edge w4 -> arrives hub at t=2.2s  (inside T0's stay) QUEUED
 #
-# FCFS at node 4: T0 -> T1 -> T2 -> T3   (arrival/queue order)
-# SJF  at node 4: T0 -> T2 -> T3 -> T1   (shortest next edge first)
+# When T0 leaves at t=2.3s, both T1 and T2 are waiting:
 #
-# T1 (blue) is 2nd in FCFS but LAST in SJF - clear visible difference!
-9 8
-0 4 3
-1 4 3
-2 4 3
-3 4 3
-4 5 1
-4 6 3
-4 7 8
-4 8 15
+#   T1 (blue)   : next edge 3->5  weight 20  (heavy - slow exit)
+#   T2 (purple) : next edge 3->6  weight  1  (light - fast exit)
+#
+# FCFS: T0 -> T1 -> T2  (T1 was first in queue since i=1 read before i=2)
+# SJF:  T0 -> T2 -> T1  (T2 has lighter next edge weight, goes before T1)
+#
+# Clear visible difference: BLUE goes 2nd in FCFS, LAST in SJF
+7 6
+0 3 1
+1 3 4
+2 3 4
+3 4 5
+3 5 20
+3 6 1
 # travelers
-4
-0 7
-1 8
-2 5
-3 6
+3
+0 4
+1 5
+2 6

@@ -241,22 +241,26 @@ sends the signal.
 
 **Comparison — FCFS vs SJF:**
 
-Using `input_ms7.txt`: 4 travelers (T0–T3) all converge on hub node 4, then
-diverge to different destinations via edges of very different weights:
+Using `input_ms7.txt`: 3 travelers converge on hub node 3. Edge weights are
+chosen so T1 and T2 both arrive at the hub **while T0 is already inside**,
+guaranteeing all three are queued at the same time:
 
-| Traveler | Next edge from node 4 | Weight |
-|----------|-----------------------|--------|
-| T0 (orange) | 4 → 7 | 8 |
-| T1 (blue)   | 4 → 8 | **15** (heaviest) |
-| T2 (purple) | 4 → 5 | **1**  (lightest) |
-| T3 (green)  | 4 → 6 | 3 |
+| Traveler | Source edge to hub | Next edge from hub | Weight |
+|----------|--------------------|--------------------|--------|
+| T0 (orange) | 0→3 w=1 (fast) | 3→4 | 5 |
+| T1 (blue)   | 1→3 w=4        | 3→5 | **20** (heavy) |
+| T2 (purple) | 2→3 w=4        | 3→6 | **1**  (light) |
 
-| Algorithm | Entry order at node 4 |
-|-----------|-----------------------|
-| **FCFS**  | T0 → **T1** → T2 → T3 (queue/arrival order) |
-| **SJF**   | T0 → **T2** → T3 → T1 (lightest next edge first) |
+**Timeline at hub node 3:**
+- t=1.3s: T0 arrives, enters immediately (hub free)
+- t=2.2s: T1 and T2 both arrive, both queue up (T0 still inside)
+- t=2.3s: T0 leaves → scheduling picks who goes next
 
-**Key difference:** T1 (blue) enters node 4 **2nd in FCFS** but **last in SJF**,
-because SJF prioritises travelers with lighter next edges (T2 w=1, T3 w=3) before
-the heavy traveler (T1 w=15). This is clearly visible in the GUI — watch which
-colored circle enters node 4 after the orange one leaves.
+| Algorithm | Entry order at hub | 2nd to enter |
+|-----------|-------------------|--------------|
+| **FCFS**  | T0 → **T1** → T2  | Blue (T1)    |
+| **SJF**   | T0 → **T2** → T1  | Purple (T2)  |
+
+**Key difference:** Blue (T1, heavy next edge w=20) enters **2nd in FCFS** but
+**last in SJF**. SJF picks Purple first because its next edge (w=1) is much
+lighter — it will clear the hub sooner, reducing average wait time.
