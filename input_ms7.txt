@@ -18,7 +18,7 @@
 # Clear visible difference: BLUE goes 2nd in FCFS, LAST in SJF
 7 6
 0 3 1
-1 3 6
+1 3 4
 2 3 4
 3 4 5
 3 5 20
