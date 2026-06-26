@@ -1,4 +1,3 @@
-/* sim_ms5.c – Milestone 5: IPC via unnamed pipes, children compute own paths */
 #include "raylib.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,12 +9,13 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#define INF           INT_MAX
+#define DEBUG_IPC 1
+#define INF INT_MAX
 #define MAX_TRAVELERS 16
 
 typedef struct { int u, v, weight; } Edge;
 typedef struct { Vector2 pos; int id; } Node;
-typedef struct { int v, weight; }  AdjEdge;
+typedef struct { int v, weight; } AdjEdge;
 typedef struct { AdjEdge *edges; int count, cap; } AdjList;
 typedef struct { int dist, node; } HeapNode;
 typedef struct { HeapNode *data; int size, cap; } MinHeap;
@@ -115,48 +115,38 @@ static void skipComments(FILE *f) {
     }
 }
 
-/*
- * IPC design: one unnamed pipe per traveler (child writes, parent reads).
- * Each message is two ints: {current_node, next_node}.
- * next_node == -1 signals DESTINATION.
- * Pipe EOF (child closed write end after exiting) signals "finished".
- *
- * Child sleeps weight*300 ms between messages so parent animation stays in sync.
- */
-
 typedef enum { T5_ACTIVE, T5_DEST, T5_FINISHED, T5_NOPATH } TState5;
 
 typedef struct {
-    pid_t   pid;
-    int     pipeR;
+    pid_t pid;
+    int pipeR;
     TState5 state;
     Vector2 pos;
-    Color   color;
-    int     src, dst;
-    int     curNode, nextNode;
-    float   timer, animTotal;
-    int     msgCount;
+    Color color;
+    int src, dst;
+    int curNode, nextNode;
+    float timer, animTotal;
+    int msgCount;
 } Traveler5;
 
 static const Color TCOLORS[MAX_TRAVELERS] = {
-    {255,150,  0,255}, {  0,100,200,255}, {150,  0,200,255}, {  0,180, 50,255},
-    {220, 50, 50,255}, {200,180,  0,255}, {  0,190,190,255}, {220, 80,180,255},
+    {255,150, 0,255}, { 0,100,200,255}, {150, 0,200,255}, { 0,180, 50,255},
+    {220, 50, 50,255}, {200,180, 0,255}, { 0,190,190,255}, {220, 80,180,255},
     { 80,200, 80,255}, {170, 90, 30,255}, { 30,150,200,255}, {200,200, 50,255},
     { 90, 90,210,255}, {200, 30,100,255}, { 30, 80,180,255}, {120,180, 80,255},
 };
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) { printf("Usage: ./sim <file_name>\n"); return 1; }
-
+    if (argc < 2) return 1;
     FILE *f = fopen(argv[1], "r");
-    if (!f) { fprintf(stderr, "Cannot open %s\n", argv[1]); return 1; }
+    if (!f) return 1;
 
     skipComments(f);
     int N, M;
     fscanf(f, "%d %d", &N, &M);
 
-    Edge    *edges = malloc(M * sizeof(Edge));
-    AdjList *adj   = calloc(N, sizeof(AdjList));
+    Edge *edges = malloc(M * sizeof(Edge));
+    AdjList *adj = calloc(N, sizeof(AdjList));
     for (int i = 0; i < M; i++) {
         skipComments(f);
         fscanf(f, "%d %d %d", &edges[i].u, &edges[i].v, &edges[i].weight);
@@ -173,185 +163,119 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < K; i++) {
         skipComments(f);
         fscanf(f, "%d %d", &travelers[i].src, &travelers[i].dst);
-        travelers[i].color    = TCOLORS[i % MAX_TRAVELERS];
-        travelers[i].state    = T5_ACTIVE;
-        travelers[i].curNode  = -1;
+        travelers[i].color = TCOLORS[i % MAX_TRAVELERS];
+        travelers[i].state = T5_ACTIVE;
+        travelers[i].curNode = -1;
         travelers[i].nextNode = -1;
     }
     fclose(f);
 
-    /* create all pipes before forking */
     int pfd[MAX_TRAVELERS][2];
     for (int i = 0; i < K; i++) {
-        if (pipe(pfd[i]) < 0) { perror("pipe"); return 1; }
+        if (pipe(pfd[i]) < 0) return 1;
     }
 
-    /* fork children */
     for (int i = 0; i < K; i++) {
         pid_t pid = fork();
-        if (pid < 0) { perror("fork"); return 1; }
-
         if (pid == 0) {
-            /* ── child process ── */
-            /* close every pipe fd except own write end */
             for (int j = 0; j < K; j++) {
                 close(pfd[j][0]);
                 if (j != i) close(pfd[j][1]);
             }
-
             int pathLen;
             int *path = calcPath(N, adj, travelers[i].src, travelers[i].dst, &pathLen);
-
             for (int j = 0; j < pathLen; j++) {
                 int msg[2] = {path[j], j + 1 < pathLen ? path[j + 1] : -1};
+                #if DEBUG_IPC
+                printf("[Child PID=%d] Sending progress: current node=%d next=%d\n", getpid(), msg[0], msg[1]);
+                #endif
                 write(pfd[i][1], msg, sizeof(msg));
-                /* sleep before sending next node arrival (matches parent animation time) */
+                #if DEBUG_IPC
+                printf("[Child PID=%d] Waiting for ACK...\n", getpid());
+                #endif
                 if (j + 1 < pathLen) {
                     int w = edgeW(path[j], path[j + 1], edges, M);
                     usleep((unsigned int)(w * 300000));
                 }
+                #if DEBUG_IPC
+                printf("[Child PID=%d] ACK received. Continuing.\n", getpid());
+                #endif
             }
-
             if (path) free(path);
             close(pfd[i][1]);
-
-            /* free child's copies of heap allocations */
             for (int j = 0; j < N; j++) free(adj[j].edges);
             free(adj); free(edges);
             exit(0);
         }
-
-        travelers[i].pid   = pid;
+        travelers[i].pid = pid;
         travelers[i].pipeR = pfd[i][0];
-    }
-
-    /* parent: close all write ends, make reads non-blocking */
-    for (int i = 0; i < K; i++) {
         close(pfd[i][1]);
-        fcntl(pfd[i][0], F_SETFL, O_NONBLOCK);
+        fcntl(travelers[i].pipeR, F_SETFL, O_NONBLOCK);
     }
 
-    /* ── parent: GUI ── */
     const int W = 800, H = 600;
     InitWindow(W, H, "Traffic Simulation - Milestone 5");
     int nodeR = 25;
-
     Node *nodes = malloc(N * sizeof(Node));
     for (int i = 0; i < N; i++) {
         float a = (2.0f * PI / N) * i - PI / 2.0f;
         nodes[i] = (Node){{W/2.0f + 200*cosf(a), H/2.0f + 200*sinf(a)}, i};
     }
-    for (int i = 0; i < K; i++)
-        travelers[i].pos = nodes[travelers[i].src].pos;
+    for (int i = 0; i < K; i++) travelers[i].pos = nodes[travelers[i].src].pos;
 
     SetTargetFPS(60);
-    int allDone = 0;
-
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
-
-        /* ── read pipe messages ── */
         for (int i = 0; i < K; i++) {
             if (travelers[i].state == T5_FINISHED || travelers[i].state == T5_NOPATH) continue;
-
-            int     msg[2];
+            int msg[2];
             ssize_t r = read(travelers[i].pipeR, msg, sizeof(msg));
-
             if (r == (ssize_t)sizeof(msg)) {
-                int cur = msg[0], nxt = msg[1];
-                travelers[i].pos     = nodes[cur].pos;
-                travelers[i].curNode = cur;
-                travelers[i].timer   = 0;
+                #if DEBUG_IPC
+                printf("[Parent] Received progress from PID=%d: current=%d next=%d\n", travelers[i].pid, msg[0], msg[1]);
+                printf("[Parent] Sending ACK to PID=%d\n", travelers[i].pid);
+                #endif
+                travelers[i].pos = nodes[msg[0]].pos;
+                travelers[i].curNode = msg[0];
+                travelers[i].timer = 0;
                 travelers[i].msgCount++;
-
-                if (nxt == -1) {
-                    printf("[PID=%d] arrived at node %d | DESTINATION\n", (int)travelers[i].pid, cur);
-                    fflush(stdout);
-                    travelers[i].nextNode = -1;
-                    travelers[i].state    = T5_DEST;
+                if (msg[1] == -1) {
+                    travelers[i].state = T5_DEST;
                 } else {
-                    printf("[PID=%d] arrived at node %d | next node: %d\n", (int)travelers[i].pid, cur, nxt);
-                    fflush(stdout);
-                    travelers[i].nextNode  = nxt;
-                    travelers[i].animTotal = edgeW(cur, nxt, edges, M) * 0.3f;
-                    travelers[i].state     = T5_ACTIVE;
+                    travelers[i].nextNode = msg[1];
+                    travelers[i].animTotal = edgeW(msg[0], msg[1], edges, M) * 0.3f;
+                    travelers[i].state = T5_ACTIVE;
                 }
             } else if (r == 0) {
-                /* EOF: child exited */
-                if (travelers[i].msgCount == 0) {
-                    travelers[i].state = T5_NOPATH;
-                    printf("[PID=%d] no path found\n", (int)travelers[i].pid);
-                } else {
-                    travelers[i].state = T5_FINISHED;
-                    printf("[PID=%d] finished\n", (int)travelers[i].pid);
-                }
-                fflush(stdout);
+                travelers[i].state = (travelers[i].msgCount == 0) ? T5_NOPATH : T5_FINISHED;
                 waitpid(travelers[i].pid, NULL, 0);
                 close(travelers[i].pipeR);
             }
-            /* r == -1 with EAGAIN: no data yet, continue */
         }
-
-        /* ── animate ── */
         for (int i = 0; i < K; i++) {
             if (travelers[i].state != T5_ACTIVE || travelers[i].nextNode < 0) continue;
             travelers[i].timer += dt;
             float pct = travelers[i].timer / travelers[i].animTotal;
             if (pct > 1.0f) pct = 1.0f;
             travelers[i].pos = (Vector2){
-                nodes[travelers[i].curNode].pos.x +
-                    (nodes[travelers[i].nextNode].pos.x - nodes[travelers[i].curNode].pos.x) * pct,
-                nodes[travelers[i].curNode].pos.y +
-                    (nodes[travelers[i].nextNode].pos.y - nodes[travelers[i].curNode].pos.y) * pct
+                nodes[travelers[i].curNode].pos.x + (nodes[travelers[i].nextNode].pos.x - nodes[travelers[i].curNode].pos.x) * pct,
+                nodes[travelers[i].curNode].pos.y + (nodes[travelers[i].nextNode].pos.y - nodes[travelers[i].curNode].pos.y) * pct
             };
         }
-
-        allDone = 1;
-        for (int i = 0; i < K; i++)
-            if (travelers[i].state == T5_ACTIVE || travelers[i].state == T5_DEST) { allDone = 0; break; }
-
         BeginDrawing();
         ClearBackground(RAYWHITE);
-
-        for (int i = 0; i < M; i++)
-            drawArrow(nodes[edges[i].u].pos, nodes[edges[i].v].pos, edges[i].weight, nodeR);
-
+        for (int i = 0; i < M; i++) drawArrow(nodes[edges[i].u].pos, nodes[edges[i].v].pos, edges[i].weight, nodeR);
         for (int i = 0; i < N; i++) {
             DrawCircleV(nodes[i].pos, nodeR, LIGHTGRAY);
             DrawCircleLines(nodes[i].pos.x, nodes[i].pos.y, nodeR, BLACK);
-            const char *lbl = TextFormat("%d", i);
-            DrawText(lbl, (int)(nodes[i].pos.x - MeasureText(lbl, 20)/2), (int)(nodes[i].pos.y - 10), 20, BLACK);
+            DrawText(TextFormat("%d", i), (int)(nodes[i].pos.x - 5), (int)(nodes[i].pos.y - 10), 20, BLACK);
         }
-
         for (int i = 0; i < K; i++) {
             if (travelers[i].state == T5_ACTIVE || travelers[i].state == T5_DEST)
                 DrawCircleV(travelers[i].pos, 12, travelers[i].color);
         }
-
-        for (int i = 0; i < K; i++) {
-            int ly = 60 + i * 22;
-            DrawRectangle(10, ly, 16, 16, travelers[i].color);
-            const char *s = travelers[i].state == T5_NOPATH   ? "(no path)" :
-                            travelers[i].state == T5_FINISHED ||
-                            travelers[i].state == T5_DEST      ? "(done)" : "";
-            DrawText(TextFormat("T%d: %d->%d %s", i, travelers[i].src, travelers[i].dst, s),
-                     32, ly, 16, DARKGRAY);
-        }
-
-        DrawText("Milestone 5 - IPC via pipes", 10, 10, 18, DARKGRAY);
-        if (allDone) DrawText("All arrived!", W/2 - 80, 20, 24, DARKGREEN);
-
         EndDrawing();
     }
-
-    /* clean up any remaining children if window was closed early */
-    for (int i = 0; i < K; i++) {
-        if (travelers[i].state != T5_FINISHED && travelers[i].state != T5_NOPATH) {
-            close(travelers[i].pipeR);
-            waitpid(travelers[i].pid, NULL, 0);
-        }
-    }
-
     CloseWindow();
     for (int i = 0; i < N; i++) free(adj[i].edges);
     free(adj); free(edges); free(nodes);
