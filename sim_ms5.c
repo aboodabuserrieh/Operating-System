@@ -129,6 +129,7 @@ typedef enum { T5_ACTIVE, T5_DEST, T5_FINISHED, T5_NOPATH } TState5;
 typedef struct {
     pid_t   pid;
     int     pipeR;
+    int     pipeW;   /* parent -> child */
     TState5 state;
     Vector2 pos;
     Color   color;
@@ -181,9 +182,10 @@ int main(int argc, char *argv[]) {
     fclose(f);
 
     /* create all pipes before forking */
-    int pfd[MAX_TRAVELERS][2];
+    int pfd[MAX_TRAVELERS][2];    /* child -> parent */
+    int p2c[MAX_TRAVELERS][2];    /* parent -> child */
     for (int i = 0; i < K; i++) {
-        if (pipe(pfd[i]) < 0) { perror("pipe"); return 1; }
+        if (pipe(pfd[i]) < 0 || pipe(p2c[i]) < 0) { perror("pipe"); return 1; }
     }
 
     /* fork children */
@@ -193,10 +195,11 @@ int main(int argc, char *argv[]) {
 
         if (pid == 0) {
             /* ── child process ── */
-            /* close every pipe fd except own write end */
+            /* close every pipe fd except own write end (pfd) and own read end (p2c) */
             for (int j = 0; j < K; j++) {
                 close(pfd[j][0]);
-                if (j != i) close(pfd[j][1]);
+                close(p2c[j][1]);
+                if (j != i) { close(pfd[j][1]); close(p2c[j][0]); }
             }
 
             int pathLen;
@@ -205,7 +208,10 @@ int main(int argc, char *argv[]) {
             for (int j = 0; j < pathLen; j++) {
                 int msg[2] = {path[j], j + 1 < pathLen ? path[j + 1] : -1};
                 write(pfd[i][1], msg, sizeof(msg));
-                /* sleep before sending next node arrival (matches parent animation time) */
+                /* wait for parent confirmation before moving to next node */
+                char ack;
+                read(p2c[i][0], &ack, 1);
+                /* sleep to match parent animation time */
                 if (j + 1 < pathLen) {
                     int w = edgeW(path[j], path[j + 1], edges, M);
                     usleep((unsigned int)(w * 300000));
@@ -214,6 +220,7 @@ int main(int argc, char *argv[]) {
 
             if (path) free(path);
             close(pfd[i][1]);
+            close(p2c[i][0]);
 
             /* free child's copies of heap allocations */
             for (int j = 0; j < N; j++) free(adj[j].edges);
@@ -223,11 +230,13 @@ int main(int argc, char *argv[]) {
 
         travelers[i].pid   = pid;
         travelers[i].pipeR = pfd[i][0];
+        travelers[i].pipeW = p2c[i][1];
     }
 
-    /* parent: close all write ends, make reads non-blocking */
+    /* parent: close write ends of pfd and read ends of p2c, make pfd reads non-blocking */
     for (int i = 0; i < K; i++) {
         close(pfd[i][1]);
+        close(p2c[i][0]);
         fcntl(pfd[i][0], F_SETFL, O_NONBLOCK);
     }
 
@@ -276,6 +285,9 @@ int main(int argc, char *argv[]) {
                     travelers[i].animTotal = edgeW(cur, nxt, edges, M) * 0.3f;
                     travelers[i].state     = T5_ACTIVE;
                 }
+                /* send confirmation so child can continue to next node */
+                char ack = 'A';
+                write(travelers[i].pipeW, &ack, 1);
             } else if (r == 0) {
                 /* EOF: child exited */
                 if (travelers[i].msgCount == 0) {
@@ -288,6 +300,7 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
                 waitpid(travelers[i].pid, NULL, 0);
                 close(travelers[i].pipeR);
+                close(travelers[i].pipeW);
             }
             /* r == -1 with EAGAIN: no data yet, continue */
         }
@@ -348,6 +361,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < K; i++) {
         if (travelers[i].state != T5_FINISHED && travelers[i].state != T5_NOPATH) {
             close(travelers[i].pipeR);
+            close(travelers[i].pipeW);
             waitpid(travelers[i].pid, NULL, 0);
         }
     }
