@@ -1,4 +1,5 @@
 /* sim_ms5.c – Milestone 5: IPC via unnamed pipes, children compute own paths */
+#define _DEFAULT_SOURCE
 #include "raylib.h"
 #include <stdio.h>
 #include <stdlib.h>
