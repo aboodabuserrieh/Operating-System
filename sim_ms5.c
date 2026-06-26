@@ -279,5 +279,6 @@ int main(int argc, char *argv[]) {
     CloseWindow();
     for (int i = 0; i < N; i++) free(adj[i].edges);
     free(adj); free(edges); free(nodes);
+
     return 0;
 }
